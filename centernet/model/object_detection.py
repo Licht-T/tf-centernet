@@ -1,17 +1,17 @@
 import tensorflow as tf
 
 from .hourglass import Hourglass104
-from .head import CenterNetHead
+from .head import ObjectDetectionHead
 
 
-class CenterNetModel(tf.keras.Model):
+class ObjectDetectionModel(tf.keras.Model):
     def __init__(self, num_classes: int):
-        super(CenterNetModel, self).__init__()
+        super(ObjectDetectionModel, self).__init__()
 
         self.hourglass104 = Hourglass104()
 
-        self.head1 = CenterNetHead(num_classes)
-        self.head2 = CenterNetHead(num_classes)
+        self.head1 = ObjectDetectionHead(num_classes)
+        self.head2 = ObjectDetectionHead(num_classes)
 
     def call(self, inputs, training=None, mask=None):
         hourglass2_output, hourglass1_output = self.hourglass104(inputs)

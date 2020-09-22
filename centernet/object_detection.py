@@ -25,7 +25,7 @@ import tensorflow as tf
 import numpy as np
 import PIL.Image
 
-from .model.centernet import CenterNetModel
+from .model.object_detection import ObjectDetectionModel
 from .util import image_util
 
 VERSION = 'v1.0.0'
@@ -45,10 +45,21 @@ class ObjectDetection:
         self.init_model()
 
     def init_model(self):
-        self.model = CenterNetModel(self.num_classes)
+        self.model = ObjectDetectionModel(self.num_classes)
         self.model(tf.keras.Input((512, 512, 3)))
 
-    def load_weights(self, weights_path: str=None):
+    def load_weights(self, weights_path: str = None):
+        if weights_path is None:
+            base_url = f'https://github.com/Licht-T/tf-centernet/releases/download/{VERSION}'
+            if self.num_classes == 80:
+                weights_path = tf.keras.utils.get_file(
+                    f'centernet_pretrained_coco_{VERSION}.h5',
+                    f'{base_url}/centernet_pretrained_coco.h5',
+                    cache_subdir='tf-centernet'
+                )
+            else:
+                raise RuntimeError('weights_path should not be None.')
+
         self.model.load_weights(weights_path)
 
     def predict(self, img: np.ndarray, debug=False):

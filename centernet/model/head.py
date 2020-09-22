@@ -14,9 +14,9 @@ class CenterNetHeadPart(tf.keras.Model):
         return self.conv2(self.conv1(inputs))
 
 
-class CenterNetHead(tf.keras.Model):
+class ObjectDetectionHead(tf.keras.Model):
     def __init__(self, num_classes: int):
-        super(CenterNetHead, self).__init__()
+        super(ObjectDetectionHead, self).__init__()
 
         self.class_heatmap_predictor = CenterNetHeadPart(num_classes)
         self.offset_predictor = CenterNetHeadPart(2)
