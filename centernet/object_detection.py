@@ -28,7 +28,7 @@ import PIL.Image
 from .model.object_detection import ObjectDetectionModel
 from .util import image_util
 
-VERSION = 'v1.0.0'
+VERSION = 'v1.0.1'
 
 
 class ObjectDetection:

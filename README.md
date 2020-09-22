@@ -5,8 +5,7 @@
 
 ## Install
 ```bash
-# Not yet uploaded.
-# pip instal tf-centernet
+pip instal tf-centernet
 ```
 
 ## Example
