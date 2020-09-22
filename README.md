@@ -1,5 +1,6 @@
 # tf-centernet
 [![PyPI version](https://badge.fury.io/py/tf-centernet.svg)](https://badge.fury.io/py/tf-centernet)
+![Upload Python Package](https://github.com/Licht-T/tf-centernet/workflows/Upload%20Python%20Package/badge.svg)
 
 [CenterNet](https://arxiv.org/abs/1904.07850) implementation with Tensorflow 2.
 
