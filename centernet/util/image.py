@@ -47,3 +47,53 @@ def draw_bounding_boxes(im: PIL.Image, bboxes: np.ndarray, classes: np.ndarray,
         draw.text((bbox[0], bbox[1]), text, fill=(0, 0, 0))
 
     return im
+
+
+def draw_keypoints(im: PIL.Image, bboxes: np.ndarray, keypoints: np.ndarray,
+                        scores: np.ndarray) -> PIL.Image:
+    im = im.copy()
+    num_joints = keypoints.shape[1]
+
+    colors = [PIL.ImageColor.getrgb(f'hsv({int(360 * x / num_joints)},100%,100%)') for x in range(num_joints)]
+
+    draw = PIL.ImageDraw.Draw(im)
+    r = 5
+
+    for joints in keypoints:
+        for i, joint in enumerate(joints):
+            color = colors[i]
+            draw.ellipse((*(joint - r), *(joint + r)), fill=color, outline=color)
+
+    # for bbox, cls, score in zip(bboxes, classes, scores):
+    #     color = colors[class_to_color_id[cls]]
+    #     draw.rectangle((*bbox.astype(np.int64),), outline=color)
+    #
+    #     text = f'{cls}: {int(100 * score)}%'
+    #     text_w, text_h = draw.textsize(text)
+    #     draw.rectangle((bbox[0], bbox[1], bbox[0] + text_w, bbox[1] + text_h), fill=color, outline=color)
+    #     draw.text((bbox[0], bbox[1]), text, fill=(0, 0, 0))
+
+    return im
+
+
+def apply_exif_orientation(img: PIL.Image) -> PIL.Image:
+    methods = {
+        1: tuple(),
+        2: (PIL.Image.FLIP_LEFT_RIGHT,),
+        3: (PIL.Image.ROTATE_180,),
+        4: (PIL.Image.FLIP_TOP_BOTTOM,),
+        5: (PIL.Image.FLIP_LEFT_RIGHT, PIL.Image.ROTATE_90),
+        6: (PIL.Image.ROTATE_270,),
+        7: (PIL.Image.FLIP_LEFT_RIGHT, PIL.Image.ROTATE_270),
+        8: (PIL.Image.ROTATE_90,),
+    }
+
+    exif = img._getexif()
+
+    if exif is None:
+        return img
+
+    for method in methods[exif.get(0x112, 1)]:
+        img = img.transpose(method)
+
+    return img
