@@ -25,6 +25,7 @@ import PIL.Image
 import PIL.ImageDraw
 import PIL.ImageColor
 import numpy as np
+import tensorflow as tf
 
 
 def draw_bounding_boxes(im: PIL.Image, bboxes: np.ndarray, classes: np.ndarray,
@@ -49,8 +50,7 @@ def draw_bounding_boxes(im: PIL.Image, bboxes: np.ndarray, classes: np.ndarray,
     return im
 
 
-def draw_keypoints(im: PIL.Image, bboxes: np.ndarray, keypoints: np.ndarray,
-                        scores: np.ndarray) -> PIL.Image:
+def draw_keypoints(im: PIL.Image, keypoints: np.ndarray) -> PIL.Image:
     im = im.copy()
     num_joints = keypoints.shape[1]
 
@@ -63,15 +63,6 @@ def draw_keypoints(im: PIL.Image, bboxes: np.ndarray, keypoints: np.ndarray,
         for i, joint in enumerate(joints):
             color = colors[i]
             draw.ellipse((*(joint - r), *(joint + r)), fill=color, outline=color)
-
-    # for bbox, cls, score in zip(bboxes, classes, scores):
-    #     color = colors[class_to_color_id[cls]]
-    #     draw.rectangle((*bbox.astype(np.int64),), outline=color)
-    #
-    #     text = f'{cls}: {int(100 * score)}%'
-    #     text_w, text_h = draw.textsize(text)
-    #     draw.rectangle((bbox[0], bbox[1], bbox[0] + text_w, bbox[1] + text_h), fill=color, outline=color)
-    #     draw.text((bbox[0], bbox[1]), text, fill=(0, 0, 0))
 
     return im
 
@@ -97,3 +88,7 @@ def apply_exif_orientation(img: PIL.Image) -> PIL.Image:
         img = img.transpose(method)
 
     return img
+
+
+def heatmap_non_max_surpression(heatmap: tf.Tensor) -> tf.Tensor:
+    return tf.dtypes.cast(heatmap == tf.nn.max_pool2d(heatmap, 3, 1, 'SAME'), tf.float32) * heatmap

@@ -26,7 +26,7 @@ import numpy as np
 import PIL.Image
 
 from .model.object_detection import ObjectDetectionModel
-from .util import image_util
+from . import util
 
 VERSION = 'v1.0.1'
 
@@ -37,6 +37,7 @@ class ObjectDetection:
         self.std = np.array([[[0.289, 0.274, 0.278]]], dtype=np.float32)
         self.k = 100
         self.score_threshold = 0.3
+        self.input_size = 512
 
         self.num_classes = num_classes
 
@@ -46,7 +47,7 @@ class ObjectDetection:
 
     def init_model(self):
         self.model = ObjectDetectionModel(self.num_classes)
-        self.model(tf.keras.Input((512, 512, 3)))
+        self.model(tf.keras.Input((self.input_size, self.input_size, 3)))
 
     def load_weights(self, weights_path: str = None):
         if weights_path is None:
@@ -64,10 +65,10 @@ class ObjectDetection:
 
     def predict(self, img: np.ndarray, debug=False):
         orig_wh = np.array(img.shape[:2])[::-1]
-        resize_factor = 512.0 / orig_wh.max()
-        centering = (512.0 - orig_wh * resize_factor) / 2
+        resize_factor = self.input_size / orig_wh.max()
+        centering = (self.input_size - orig_wh * resize_factor) / 2
 
-        input_img = tf.image.resize_with_pad(img, 512, 512)
+        input_img = tf.image.resize_with_pad(img, self.input_size, self.input_size)
         input_img = (tf.dtypes.cast(input_img, tf.float32) / tf.constant(255, tf.float32) - self.mean) / self.std
         input_img = input_img[tf.newaxis, ...]
 
@@ -75,7 +76,7 @@ class ObjectDetection:
 
         heatmap, offsets, whs = predicted
 
-        heatmap = tf.dtypes.cast(heatmap == tf.nn.max_pool2d(heatmap, 3, 1, 'SAME'), tf.float32) * heatmap
+        heatmap = util.image.heatmap_non_max_surpression(heatmap)
 
         heatmap = np.squeeze(heatmap.numpy())
         offsets = np.squeeze(offsets.numpy())
@@ -91,12 +92,12 @@ class ObjectDetection:
         xys = np.concatenate([cols[..., np.newaxis], rows[..., np.newaxis]], axis=-1) + offsets[rows, cols]
         boxes = np.concatenate([xys - whs[rows, cols]/2, xys + whs[rows, cols]/2], axis=1).reshape((-1, 2, 2))
 
-        boxes = ((512 / heatmap.shape[0]) * boxes - centering) / resize_factor
+        boxes = ((self.input_size / heatmap.shape[0]) * boxes - centering) / resize_factor
         boxes = boxes.reshape((-1, 4))
 
         if debug:
             im = PIL.Image.fromarray(img[..., ::-1])
-            im = image_util.draw_bounding_boxes(im, boxes, classes, scores)
+            im = util.image.draw_bounding_boxes(im, boxes, classes, scores)
             im.save('./output.png')
 
         return boxes, classes, scores
