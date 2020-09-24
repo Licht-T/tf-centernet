@@ -10,7 +10,7 @@ pip instal tf-centernet
 ```
 
 ## Example
-### CenterNet object detection
+### Object detection
 ```python
 import numpy as np
 import PIL.Image
@@ -29,12 +29,38 @@ img = np.array(PIL.Image.open('./data/sf.jpg'))[..., ::-1]
 # The image with predicted bounding-boxes is created if `debug=True`
 boxes, classes, scores = obj.predict(img, debug=True)
 ```
-![output](https://raw.githubusercontent.com/Licht-T/tf-centernet/master/data/output.png)
+![output_obj](https://raw.githubusercontent.com/Licht-T/tf-centernet/master/data/output_obj.png)
+
+### Pose estimation
+```python
+import numpy as np
+import PIL.Image
+import centernet
+
+# Default: num_joints=17
+pe = centernet.PoseEstimation(num_joints=17)
+
+# Default: weights_path=None
+# num_joints=17 and weights_path=None: Pre-trained COCO model will be loaded.
+# Otherwise: User-defined weight file will be loaded.
+pe.load_weights(weights_path=None)
+
+# Adjust this for the better prediction
+pe.score_threshold = 0.1
+
+img = np.array(PIL.Image.open('./data/chi.jpg'))[..., ::-1]
+
+# The image with predicted keypoints is created if `debug=True`
+boxes, keypoints, scores = pe.predict(img, debug=True)
+```
+![output_pose](https://raw.githubusercontent.com/Licht-T/tf-centernet/master/data/output_pose.png)
+
 
 ## TODO
 * [x] Object detection
-* [x] Pre-trained model for object detection
-* [ ] Pose estimation
-* [ ] Pre-trained model for pose estimation
+* [x] Pre-trained model for object detection with Hourglass-104
+* [x] Pose estimation
+* [x] Pre-trained model for pose estimation with Hourglass-104
+* [ ] DLA-34 backbone and pre-trained models
 * [ ] Training function and Loss definition
 * [ ] Training data augmentation

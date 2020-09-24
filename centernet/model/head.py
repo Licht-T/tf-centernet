@@ -51,3 +51,26 @@ class ObjectDetectionHead(tf.keras.Model):
             self.offset_predictor(inputs),
             self.wh_predictor(inputs)
         ]
+
+
+class PoseEstimationHead(tf.keras.Model):
+    def __init__(self, num_joints: int):
+        super(PoseEstimationHead, self).__init__()
+
+        self.joint_heatmap_predictor = CenterNetHeadPart(num_joints)
+        self.joint_locations_predictor = CenterNetHeadPart(2 * num_joints)
+        self.joint_offset_predictor = CenterNetHeadPart(2)
+
+        self.class_heatmap_predictor = CenterNetHeadPart(1)
+        self.offset_predictor = CenterNetHeadPart(2)
+        self.wh_predictor = CenterNetHeadPart(2)
+
+    def call(self, inputs, training=None, mask=None):
+        return [
+            tf.sigmoid(self.joint_heatmap_predictor(inputs)),
+            self.joint_locations_predictor(inputs),
+            self.joint_offset_predictor(inputs),
+            tf.sigmoid(self.class_heatmap_predictor(inputs)),
+            self.offset_predictor(inputs),
+            self.wh_predictor(inputs)
+        ]

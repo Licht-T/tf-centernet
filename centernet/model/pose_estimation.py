@@ -21,6 +21,25 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 """
-from .object_detection import ObjectDetection
-from .pose_estimation import PoseEstimation
-from .version import VERSION
+import tensorflow as tf
+
+from .hourglass import Hourglass104
+from .head import PoseEstimationHead
+
+
+class PoseEstimationModel(tf.keras.Model):
+    def __init__(self, num_joints: int):
+        super(PoseEstimationModel, self).__init__()
+
+        self.hourglass104 = Hourglass104()
+
+        self.head1 = PoseEstimationHead(num_joints)
+        self.head2 = PoseEstimationHead(num_joints)
+
+    def call(self, inputs, training=None, mask=None):
+        hourglass2_output, hourglass1_output = self.hourglass104(inputs)
+
+        output1 = self.head1(hourglass1_output)
+        output2 = self.head2(hourglass2_output)
+
+        return [output2, output1]

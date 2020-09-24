@@ -25,36 +25,37 @@ import tensorflow as tf
 import numpy as np
 import PIL.Image
 
-from .model.object_detection import ObjectDetectionModel
+from .model.pose_estimation import PoseEstimationModel
 from . import util
 from .version import VERSION
 
 
-class ObjectDetection:
-    def __init__(self, num_classes: int = 80):
+class PoseEstimation:
+    def __init__(self, num_joints: int = 17):
         self.mean = np.array([[[0.408, 0.447, 0.470]]], dtype=np.float32)
         self.std = np.array([[[0.289, 0.274, 0.278]]], dtype=np.float32)
         self.k = 100
         self.score_threshold = 0.3
         self.input_size = 512
 
-        self.num_classes = num_classes
+        self.num_joints = num_joints
+        self.num_joints_arange = np.arange(self.num_joints)[:, np.newaxis]
 
         self.model = None
 
         self.init_model()
 
     def init_model(self):
-        self.model = ObjectDetectionModel(self.num_classes)
+        self.model = PoseEstimationModel(self.num_joints)
         self.model(tf.keras.Input((self.input_size, self.input_size, 3)))
 
     def load_weights(self, weights_path: str = None):
         if weights_path is None:
             base_url = f'https://github.com/Licht-T/tf-centernet/releases/download/{VERSION}'
-            if self.num_classes == 80:
+            if self.num_joints == 17:
                 weights_path = tf.keras.utils.get_file(
-                    f'centernet_pretrained_coco_{VERSION}.h5',
-                    f'{base_url}/centernet_pretrained_coco.h5',
+                    f'centernet_pretrained_pose_{VERSION}.h5',
+                    f'{base_url}/centernet_pretrained_pose.h5',
                     cache_subdir='tf-centernet'
                 )
             else:
@@ -73,10 +74,14 @@ class ObjectDetection:
 
         predicted, _ = self.model(input_img)
 
-        heatmap, offsets, whs = predicted
+        joint_heatmap, joint_locations, joint_offsets, heatmap, offsets, whs = predicted
 
+        joint_heatmap = util.image.heatmap_non_max_surpression(joint_heatmap)
         heatmap = util.image.heatmap_non_max_surpression(heatmap)
 
+        joint_heatmap = np.squeeze(joint_heatmap.numpy())
+        joint_locations = np.squeeze(joint_locations.numpy())
+        joint_offsets = np.squeeze(joint_offsets.numpy())
         heatmap = np.squeeze(heatmap.numpy())
         offsets = np.squeeze(offsets.numpy())
         whs = np.squeeze(whs.numpy())
@@ -86,17 +91,44 @@ class ObjectDetection:
         idx = idx[scores > self.score_threshold]
         scores = scores[scores > self.score_threshold]
 
-        rows, cols, classes = np.unravel_index(idx, heatmap.shape)
+        rows, cols = np.unravel_index(idx, heatmap.shape)
 
-        xys = np.concatenate([cols[..., np.newaxis], rows[..., np.newaxis]], axis=-1) + offsets[rows, cols]
+        xys = np.concatenate([cols[..., np.newaxis], rows[..., np.newaxis]], axis=-1)
+        keypoints = joint_locations[rows, cols].reshape((-1, self.num_joints, 2)) + xys[:, np.newaxis, :]
+        keypoints = keypoints.transpose([1, 0, 2])
+
+        xys = xys + offsets[rows, cols]
         boxes = np.concatenate([xys - whs[rows, cols]/2, xys + whs[rows, cols]/2], axis=1).reshape((-1, 2, 2))
+
+        joint_idx = joint_heatmap.transpose([2, 0, 1]).reshape((self.num_joints, -1)).argsort(1)[:, ::-1][:, :self.k]
+        joint_rows, joint_cols = np.unravel_index(joint_idx, joint_heatmap.shape[:2])
+        joint_classes = np.broadcast_to(self.num_joints_arange, (self.num_joints, self.k))
+        joint_scores = joint_heatmap[joint_rows, joint_cols, joint_classes]
+
+        joint_xys = np.concatenate([joint_cols[..., np.newaxis], joint_rows[..., np.newaxis]], axis=-1)
+        joint_xys = joint_xys + joint_offsets[joint_rows, joint_cols]
+        joint_xys[0.1 >= joint_scores] = np.inf  # CxKx2
+
+        joint_xys_matrix = np.tile(joint_xys[:, np.newaxis, :, :], (1, keypoints.shape[1], 1, 1))
+        box_upperlefts = boxes[np.newaxis, :, np.newaxis, 0, :]
+        box_lowerrights = boxes[np.newaxis, :, np.newaxis, 1, :]
+        joint_xys_matrix[((joint_xys_matrix < box_upperlefts) | (box_lowerrights < joint_xys_matrix)).any(-1)] = np.inf
+
+        distance_matrix = ((keypoints[:, :, np.newaxis, :] - joint_xys_matrix) ** 2).sum(axis=-1) ** 0.5  # CxJxK
+        nearest_joint_for_keypoints = distance_matrix.argmin(-1)  # CxJ
+        nearest_joints_conditions = np.isfinite(distance_matrix.min(-1))
+        keypoints[nearest_joints_conditions] = \
+            joint_xys[self.num_joints_arange, nearest_joint_for_keypoints, :][nearest_joints_conditions]
 
         boxes = ((self.input_size / heatmap.shape[0]) * boxes - centering) / resize_factor
         boxes = boxes.reshape((-1, 4))
 
+        keypoints = ((self.input_size / heatmap.shape[0]) * keypoints - centering) / resize_factor
+        keypoints = keypoints.transpose([1, 0, 2])
+
         if debug:
             im = PIL.Image.fromarray(img[..., ::-1])
-            im = util.image.draw_bounding_boxes(im, boxes, classes, scores)
+            im = util.image.draw_keypoints(im, keypoints)
             im.save('./output.png')
 
-        return boxes, classes, scores
+        return boxes, keypoints, scores
