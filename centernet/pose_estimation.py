@@ -39,13 +39,14 @@ class PoseEstimation:
         self.input_size = 512
 
         self.num_joints = num_joints
-        self.num_joints_arange = np.arange(self.num_joints)[:, np.newaxis]
 
+        self.num_joints_arange = None
         self.model = None
 
         self.init_model()
 
     def init_model(self):
+        self.num_joints_arange = np.arange(self.num_joints)[:, np.newaxis]
         self.model = PoseEstimationModel(self.num_joints)
         self.model(tf.keras.Input((self.input_size, self.input_size, 3)))
 
